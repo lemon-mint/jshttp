@@ -39,6 +39,15 @@ func (j *jsHTTPResp) WriteHeader(statusCode int) {
 	j.Status = statusCode
 }
 
+func await(vp js.Value) []js.Value {
+	ch := make(chan []js.Value)
+	vp.Call("then", js.FuncOf(func(_ js.Value, args []js.Value) any {
+		ch <- args
+		return nil
+	}))
+	return <-ch
+}
+
 func init() {
 	js.Global().Set("__go_jshttp", js.FuncOf(func(this js.Value, args []js.Value) any {
 		if len(args) < 1 {
@@ -52,7 +61,7 @@ func init() {
 		JSBodyUsed := JSRequest.Get("bodyUsed").Bool()
 		var r io.Reader
 		if JSBodyUsed {
-			JSBody := js.Global().Get("Uint8Array").New(JSRequest.Call("arrayBuffer"))
+			JSBody := js.Global().Get("Uint8Array").New(await(JSRequest.Call("arrayBuffer"))[0])
 			bodyBuffer := make([]byte, JSBody.Get("byteLength").Int())
 			js.CopyBytesToGo(bodyBuffer, JSBody)
 			r = bytes.NewBuffer(bodyBuffer)
