@@ -1,0 +1,7 @@
+{
+    "deno.enable": true,
+    "go.toolsEnvVars": {
+        "GOOS": "js",
+        "GOARCH": "wasm",
+    }
+}
