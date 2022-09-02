@@ -51,28 +51,33 @@ func init() {
 		JSURL := JSRequest.Get("url")
 		JSHeaders := js.Global().Get("Array").Call("from", JSRequest.Get("headers").Call("entries"))
 		var r io.Reader
-
-		JSBufferPromise := JSRequest.Call("arrayBuffer")
-		bChan := make(chan []byte, 1)
-		errChan := make(chan error, 1)
-		success := js.FuncOf(func(_ js.Value, args []js.Value) any {
-			JSBodyArray := js.Global().Get("Uint8Array").New(args[0])
+		if len(args) < 2 {
+			JSBufferPromise := JSRequest.Call("arrayBuffer")
+			bChan := make(chan []byte, 1)
+			errChan := make(chan error, 1)
+			success := js.FuncOf(func(_ js.Value, args []js.Value) any {
+				JSBodyArray := js.Global().Get("Uint8Array").New(args[0])
+				bodyBuffer := make([]byte, JSBodyArray.Get("byteLength").Int())
+				js.CopyBytesToGo(bodyBuffer, JSBodyArray)
+				bChan <- bodyBuffer
+				return nil
+			})
+			failure := js.FuncOf(func(_ js.Value, args []js.Value) any {
+				errChan <- fmt.Errorf("JS Error %s", args[0].String())
+				return nil
+			})
+			go JSBufferPromise.Call("then", success, failure)
+			select {
+			case b := <-bChan:
+				r = bytes.NewReader(b)
+			case err := <-errChan:
+				fmt.Println(err)
+			}
+		} else {
+			JSBodyArray := js.Global().Get("Uint8Array").New(args[1])
 			bodyBuffer := make([]byte, JSBodyArray.Get("byteLength").Int())
 			js.CopyBytesToGo(bodyBuffer, JSBodyArray)
-			r = bytes.NewBuffer(bodyBuffer)
-			bChan <- bodyBuffer
-			return nil
-		})
-		failure := js.FuncOf(func(_ js.Value, args []js.Value) any {
-			errChan <- fmt.Errorf("JS Error %s", args[0].String())
-			return nil
-		})
-		go JSBufferPromise.Call("then", success, failure)
-		select {
-		case b := <-bChan:
-			r = bytes.NewReader(b)
-		case err := <-errChan:
-			fmt.Println(err)
+			r = bytes.NewReader(bodyBuffer)
 		}
 
 		httpRequest, err := http.NewRequest(JSMethod.String(), JSURL.String(), r)
