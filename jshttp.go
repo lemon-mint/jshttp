@@ -6,6 +6,7 @@ package jshttp
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/textproto"
@@ -39,15 +40,6 @@ func (j *jsHTTPResp) WriteHeader(statusCode int) {
 	j.Status = statusCode
 }
 
-func await(vp js.Value) []js.Value {
-	ch := make(chan []js.Value)
-	vp.Call("then", js.FuncOf(func(_ js.Value, args []js.Value) any {
-		ch <- args
-		return nil
-	}))
-	return <-ch
-}
-
 func init() {
 	js.Global().Set("__go_jshttp", js.FuncOf(func(this js.Value, args []js.Value) any {
 		if len(args) < 1 {
@@ -58,13 +50,29 @@ func init() {
 		JSMethod := JSRequest.Get("method")
 		JSURL := JSRequest.Get("url")
 		JSHeaders := js.Global().Get("Array").Call("from", JSRequest.Get("headers").Call("entries"))
-		JSBodyUsed := JSRequest.Get("bodyUsed").Bool()
 		var r io.Reader
-		if JSBodyUsed {
-			JSBody := js.Global().Get("Uint8Array").New(await(JSRequest.Call("arrayBuffer"))[0])
-			bodyBuffer := make([]byte, JSBody.Get("byteLength").Int())
-			js.CopyBytesToGo(bodyBuffer, JSBody)
+
+		JSBufferPromise := JSRequest.Call("arrayBuffer")
+		bChan := make(chan []byte, 1)
+		errChan := make(chan error, 1)
+		success := js.FuncOf(func(_ js.Value, args []js.Value) any {
+			JSBodyArray := js.Global().Get("Uint8Array").New(args[0])
+			bodyBuffer := make([]byte, JSBodyArray.Get("byteLength").Int())
+			js.CopyBytesToGo(bodyBuffer, JSBodyArray)
 			r = bytes.NewBuffer(bodyBuffer)
+			bChan <- bodyBuffer
+			return nil
+		})
+		failure := js.FuncOf(func(_ js.Value, args []js.Value) any {
+			errChan <- fmt.Errorf("JS Error %s", args[0].String())
+			return nil
+		})
+		go JSBufferPromise.Call("then", success, failure)
+		select {
+		case b := <-bChan:
+			r = bytes.NewReader(b)
+		case err := <-errChan:
+			fmt.Println(err)
 		}
 
 		httpRequest, err := http.NewRequest(JSMethod.String(), JSURL.String(), r)
