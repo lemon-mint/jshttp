@@ -44,8 +44,8 @@ if ((await Deno.permissions.query({ name: "env" })).state == "granted") {
 }
 go.run(instance.instance);
 
-await serve((_req) => {
-    const _resp = window.__go_jshttp(_req);
+await serve(async (_req) => {
+    const _resp = window.__go_jshttp(_req, await _req.arrayBuffer());
     return _resp;
 });
 ```
