@@ -62,10 +62,12 @@ func init() {
 				bChan <- bodyBuffer
 				return nil
 			})
+			defer success.Release()
 			failure := js.FuncOf(func(_ js.Value, args []js.Value) any {
 				errChan <- fmt.Errorf("JS Error %s", args[0].String())
 				return nil
 			})
+			defer failure.Release()
 			go JSBufferPromise.Call("then", success, failure)
 			select {
 			case b := <-bChan:
