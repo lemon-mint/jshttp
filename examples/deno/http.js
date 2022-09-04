@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.153.0/http/mod.ts";
-import * as _ from "https://raw.githubusercontent.com/golang/go/go1.19/misc/wasm/wasm_exec.js";
+import * as _ from "https://cdn.jsdelivr.net/gh/golang/go@go1.19/misc/wasm/wasm_exec.js";
 
 const wasm_file = await Deno.readFile("./main.wasm");
 const go = new window.Go();
