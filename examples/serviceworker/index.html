@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go Service Worker</title>
+</head>
+
+<body>
+    <script>
+        if (navigator.serviceWorker) {
+            navigator.serviceWorker.register("/sw.js").then((e) => {
+                console.log("sw.js registered");
+                if (e.active) {
+                    setTimeout(() => { window.location.reload() }, 500);
+                    return;
+                }
+                const installing = e.installing;
+                if (installing) {
+                    installing.onstatechange = () => {
+                        if (installing.state == 'installed') {
+                            window.location.reload();
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+    <h1>Redirecting...</h1>
+</body>
+
+</html>
