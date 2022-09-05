@@ -40,12 +40,12 @@ self.addEventListener('fetch', (e) => {
     if (typeof __go_jshttp != 'undefined') {
         e.respondWith((async () => {
             try {
-                const resp = __go_jshttp(e.request, await e.request.arrayBuffer());
+                const resp = await __go_jshttp(e.request);
                 return resp;
             } catch {
                 __go_jshttp = undefined;
                 runWASM();
-                const resp = __go_jshttp(e.request, await e.request.arrayBuffer());
+                const resp = await __go_jshttp(e.request);
                 return resp;
             }
         })());
