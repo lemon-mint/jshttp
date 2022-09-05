@@ -20,12 +20,16 @@ var httpServer http.Handler = http.DefaultServeMux
 var mu sync.Mutex
 
 type jsHTTPResp struct {
+	mu         sync.Mutex
 	Body       bytes.Buffer
 	HTTPHeader http.Header
 	Status     int
 }
 
 func (j *jsHTTPResp) Header() http.Header {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
 	if j.HTTPHeader == nil {
 		j.HTTPHeader = make(http.Header)
 	}
@@ -33,11 +37,17 @@ func (j *jsHTTPResp) Header() http.Header {
 }
 
 func (j *jsHTTPResp) Write(b []byte) (int, error) {
-	return j.Body.Write(b)
+	j.mu.Lock()
+	n, err := j.Body.Write(b)
+	j.mu.Unlock()
+
+	return n, err
 }
 
 func (j *jsHTTPResp) WriteHeader(statusCode int) {
+	j.mu.Lock()
 	j.Status = statusCode
+	j.mu.Unlock()
 }
 
 var js_Array = js.Global().Get("Array")
